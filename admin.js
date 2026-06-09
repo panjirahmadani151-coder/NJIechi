@@ -77,6 +77,8 @@
             <button data-action="release" data-id="${o.order_id}" class="btn">Release Escrow</button>
             <button data-action="ship" data-id="${o.order_id}" class="btn">Mark Shipped</button>
             <button data-action="deliver" data-id="${o.order_id}" class="btn">Mark Delivered</button>
+            <button data-action="update-tracking" data-id="${o.order_id}" class="btn">Update Tracking</button>
+            <button data-action="view-tracking" data-id="${o.order_id}" class="btn">Lihat Peta</button>
             <button data-action="approve-return" data-id="${o.order_id}" class="btn">Approve Return</button>
             <button data-action="reject-return" data-id="${o.order_id}" class="btn">Reject Return</button>
             <button data-action="view-attach" data-id="${o.order_id}" class="btn">View Attachment</button>
