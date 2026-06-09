@@ -46,6 +46,13 @@
       if (idx >= 0) {
         all[idx].payment_status = 'COMPLETED';
         all[idx].status = 'PROCESSING';
+        // award reward coins (1% cashback of final_total or total)
+        const base = all[idx].final_total !== undefined ? all[idx].final_total : all[idx].total;
+        const reward = Math.max(0, Math.floor(base * 0.01));
+        all[idx].reward = reward;
+        // add to user's coin balance
+        const cur = JSON.parse(localStorage.getItem('njiCoins') || '0');
+        localStorage.setItem('njiCoins', JSON.stringify(cur + reward));
         localStorage.setItem('njiOrders', JSON.stringify(all));
       }
       // redirect back with success flag

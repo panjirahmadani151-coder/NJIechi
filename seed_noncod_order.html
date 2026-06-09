@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Seed Non-COD Order</title>
+    <style>body{font-family:system-ui,Segoe UI,Roboto,Arial;padding:2rem;background:#f7fafc} .box{background:#fff;padding:1rem;border-radius:8px;max-width:720px;margin:0 auto}</style>
+  </head>
+  <body>
+    <div class="box">
+      <h2>Seed Non-COD Order</h2>
+      <p>Halaman ini akan menaruh produk contoh ke keranjang lalu membuka halaman checkout (non-COD / DANA).</p>
+      <button id="seed">Tambah ke Keranjang dan Buka Checkout</button>
+      <p id="status"></p>
+    </div>
+    <script>
+      document.getElementById('seed').addEventListener('click', () => {
+        const status = document.getElementById('status');
+        // sample cart items (productId::variant)
+        const cart = {};
+        cart['shirt-01::s-white'] = { id: 'shirt-01::s-white', product_id: 'shirt-01', variant_id: 's-white', name: 'Kemeja Batik Premium', variant_name: 'Putih / S', price: 189000, image: 'https://images.unsplash.com/photo-1520975924654-0c2d9c91b73b?auto=format&fit=crop&w=900&q=80', quantity: 1 };
+        cart['polo-03::m-red'] = { id: 'polo-03::m-red', product_id: 'polo-03', variant_id: 'm-red', name: 'Polo Classic Merah', variant_name: 'Merah / M', price: 129000, image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=900&q=80', quantity: 1 };
+        localStorage.setItem('njiCart', JSON.stringify(cart));
+        status.textContent = 'Produk ditambahkan ke keranjang. Mengarahkan ke toko...';
+        setTimeout(() => {
+          // open checkout directly and auto pay
+          window.location.href = 'index.html?open=checkout&auto_pay=1';
+        }, 600);
+      });
+    </script>
+  </body>
+</html>

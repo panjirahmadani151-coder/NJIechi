@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Admin - NusantaraMall</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      main{padding:2rem}
+      .admin-table{width:100%;border-collapse:collapse}
+      .admin-table th,.admin-table td{padding:.6rem;border:1px solid #eee;text-align:left}
+      .small{font-size:0.9rem;color:var(--muted)}
+      .actions{display:flex;gap:.4rem;flex-wrap:wrap}
+      .attachment{max-width:160px;max-height:90px;object-fit:cover;border-radius:6px}
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand"><span class="brand-logo">NM</span><div><h1>Admin NusantaraMall</h1><p class="small">Dashboard sederhana untuk demo</p></div></div>
+    </header>
+    <main>
+      <h2>Daftar Pesanan</h2>
+      <div id="orders-root"></div>
+    </main>
+    <script src="admin.js"></script>
+  </body>
+</html>

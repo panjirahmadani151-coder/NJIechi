@@ -106,9 +106,89 @@ const variantSelect = document.getElementById('variant-select');
 const variantQty = document.getElementById('variant-qty');
 const addVariantCart = document.getElementById('add-variant-cart');
 const productCancel = document.getElementById('product-cancel');
+const ordersModal = document.getElementById('orders-modal');
+const ordersList = document.getElementById('orders-list');
+const ordersClose = document.getElementById('orders-close');
+const returnModal = document.getElementById('return-modal');
+const returnForm = document.getElementById('return-form');
+const returnCancel = document.getElementById('return-cancel');
+const returnOrderId = document.getElementById('return-order-id');
+const returnReason = document.getElementById('return-reason');
+const returnAttach = document.getElementById('return-attach');
+const coinBalanceEl = document.getElementById('coin-balance');
+const useCoinsEl = document.getElementById('use-coins');
+const voucherStoreEl = document.getElementById('voucher-store');
+const voucherPlatformEl = document.getElementById('voucher-platform');
+const voucherShippingEl = document.getElementById('voucher-shipping');
+
+// Sample vouchers catalog
+const vouchers = [
+  { id: 'TOKO50', type: 'store', label: 'Voucher Toko - Rp 50.000', value: 50000 },
+  { id: 'TOKO20', type: 'store', label: 'Voucher Toko - Rp 20.000', value: 20000 },
+  { id: 'PLAT10', type: 'platform_percent', label: 'Platform - 10% (max Rp 50.000)', percent: 10, cap: 50000 },
+  { id: 'PLAT50', type: 'platform_value', label: 'Platform - Rp 50.000', value: 50000 },
+  { id: 'FREE50', type: 'shipping', label: 'Gratis Ongkir Rp 50.000', value: 50000 }
+];
+
+const SHIPPING_COST = 20000;
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value);
+}
+
+function updateCoinDisplay(){
+  const coins = JSON.parse(localStorage.getItem('njiCoins') || '0');
+  coinBalanceEl.textContent = formatCurrency(coins);
+  useCoinsEl.max = coins;
+}
+
+function populateVouchers(){
+  if (!voucherStoreEl) return;
+  vouchers.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.id;
+    opt.textContent = v.label;
+    if (v.type === 'store') voucherStoreEl.appendChild(opt);
+    if (v.type === 'platform_percent' || v.type === 'platform_value') voucherPlatformEl.appendChild(opt);
+    if (v.type === 'shipping') voucherShippingEl.appendChild(opt);
+  });
+}
+
+function calculateFinalTotal(order, useCoins, storeVoucherId, platformVoucherId, shippingVoucherId){
+  const subtotal = order.items.reduce((s,i) => s + i.price * i.quantity, 0);
+  let shipping = SHIPPING_COST;
+  let discounts = 0;
+  let coinsUsed = 0;
+
+  // apply store voucher
+  if (storeVoucherId) {
+    const v = vouchers.find(x => x.id === storeVoucherId && x.type === 'store');
+    if (v) { discounts += v.value; }
+  }
+  // apply platform voucher
+  if (platformVoucherId) {
+    const v = vouchers.find(x => x.id === platformVoucherId && (x.type === 'platform_percent' || x.type === 'platform_value'));
+    if (v) {
+      if (v.type === 'platform_value') discounts += v.value;
+      if (v.type === 'platform_percent') {
+        const val = Math.floor(subtotal * (v.percent/100));
+        discounts += Math.min(val, v.cap || val);
+      }
+    }
+  }
+  // apply shipping voucher
+  if (shippingVoucherId) {
+    const v = vouchers.find(x => x.id === shippingVoucherId && x.type === 'shipping');
+    if (v) { discounts += Math.min(shipping, v.value); shipping = Math.max(0, shipping - v.value); }
+  }
+
+  // apply coins (cannot exceed user's coins or remaining total)
+  const coinsAvailable = JSON.parse(localStorage.getItem('njiCoins') || '0');
+  const maxCoinsUsable = Math.min(coinsAvailable, subtotal + shipping - discounts);
+  coinsUsed = Math.max(0, Math.min(useCoins || 0, maxCoinsUsable));
+
+  const finalTotal = Math.max(0, subtotal + shipping - discounts - coinsUsed);
+  return { finalTotal, discounts, coinsUsed };
 }
 
 function saveCart() {
@@ -374,10 +454,82 @@ function processPayment(order) {
   });
 }
 
+function openOrdersModal() {
+  renderOrders();
+  ordersModal.classList.add('open');
+}
+
+function renderOrders() {
+  const orders = JSON.parse(localStorage.getItem('njiOrders') || '[]');
+  if (!orders || !orders.length) {
+    ordersList.innerHTML = '<p class="muted">Belum ada pesanan.</p>';
+    return;
+  }
+  ordersList.innerHTML = orders.map(o => {
+    const items = o.items.map(i => `${i.name} x${i.quantity}`).join('<br/>');
+    const ret = o.return ? `<div style="color:var(--accent);font-weight:600">Retur: ${o.return.status}</div>` : '';
+    const finalTotal = o.final_total !== undefined ? o.final_total : o.total;
+    const discounts = o.discounts || 0;
+    const vouchersApplied = o.applied_vouchers ? Object.values(o.applied_vouchers).filter(Boolean).join(', ') : '-';
+    const coinsUsed = o.coins_used || 0;
+    return `
+      <div style="border-bottom:1px solid #eee;padding:0.6rem 0;">
+        <div><strong>${o.order_id}</strong> • ${new Date(o.created_at).toLocaleString()}</div>
+        <div>${items}</div>
+        <div>Status: <strong>${o.status}</strong> • Pembayaran: <strong>${o.payment_status}</strong></div>
+        <div>Voucher: <strong>${vouchersApplied}</strong> • Koin dipakai: <strong>${formatCurrency(coinsUsed)}</strong></div>
+        <div>Diskon: <strong>${formatCurrency(discounts)}</strong> • Total akhir: <strong>${formatCurrency(finalTotal)}</strong></div>
+        ${ret}
+        <div style="margin-top:.5rem;display:flex;gap:.5rem;">
+          ${o.status !== 'DELIVERED' ? `<button class="btn btn-primary" data-action="confirm" data-id="${o.order_id}">Konfirmasi Diterima</button>` : ''}
+          <button class="btn btn-secondary" data-action="return" data-id="${o.order_id}">Ajukan Retur</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  // attach listeners
+  ordersList.querySelectorAll('button[data-action]').forEach(b => b.addEventListener('click', (e) => {
+    const action = b.dataset.action;
+    const id = b.dataset.id;
+    if (action === 'confirm') confirmReceived(id);
+    if (action === 'return') openReturnForm(id);
+  }));
+}
+
+function confirmReceived(orderId) {
+  const orders = JSON.parse(localStorage.getItem('njiOrders') || '[]');
+  const idx = orders.findIndex(o => o.order_id === orderId);
+  if (idx < 0) return;
+  // release escrow for non-cod
+  if (orders[idx].payment_method && orders[idx].payment_method !== 'cod') {
+    orders[idx].payment_status = 'RELEASED';
+    orders[idx].status = 'DELIVERED';
+  } else {
+    orders[idx].status = 'DELIVERED';
+  }
+  localStorage.setItem('njiOrders', JSON.stringify(orders));
+  renderOrders();
+  document.getElementById('modal-title').textContent = 'Pesanan Dikonfirmasi';
+  document.getElementById('modal-body').textContent = `Terima kasih. Order ${orderId} telah dikonfirmasi diterima.`;
+  showModal();
+}
+
+function openReturnForm(orderId) {
+  returnOrderId.value = orderId;
+  returnReason.value = '';
+  returnAttach.value = '';
+  returnModal.classList.add('open');
+}
+
 function init() {
   renderFilters();
   renderProducts(getFilteredProducts());
   renderCart();
+
+  // seed user coins if missing
+  if (!localStorage.getItem('njiCoins')) localStorage.setItem('njiCoins', JSON.stringify(50000));
+  updateCoinDisplay();
+  populateVouchers();
 
   categoryFilter.addEventListener('click', handleCategoryClick);
   productGrid.addEventListener('click', handleProductGridClick);
@@ -396,6 +548,35 @@ function init() {
   modal.addEventListener('click', event => {
     if (event.target === modal) hideModal();
   });
+  // Orders modal handlers
+  const ordersLink = document.getElementById('orders-link');
+  ordersLink && ordersLink.addEventListener('click', (e) => { e.preventDefault(); openOrdersModal(); });
+  ordersClose && ordersClose.addEventListener('click', () => ordersModal.classList.remove('open'));
+  // return modal handlers
+  returnCancel && returnCancel.addEventListener('click', () => returnModal.classList.remove('open'));
+  returnForm && returnForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const oid = returnOrderId.value;
+    const reason = returnReason.value.trim();
+    const pick = returnForm.querySelector('input[name="return-method"]:checked').value;
+    let attachData = null;
+    if (returnAttach.files && returnAttach.files[0]) {
+      attachData = await new Promise(res => {
+        const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(returnAttach.files[0]);
+      });
+    }
+    const orders = JSON.parse(localStorage.getItem('njiOrders') || '[]');
+    const idx = orders.findIndex(o => o.order_id === oid);
+    if (idx >= 0) {
+      orders[idx].return = { status: 'REQUESTED', reason, pickup_method: pick, attachment: attachData, created_at: new Date().toISOString() };
+      localStorage.setItem('njiOrders', JSON.stringify(orders));
+      renderOrders();
+      returnModal.classList.remove('open');
+      document.getElementById('modal-title').textContent = 'Retur Diajukan';
+      document.getElementById('modal-body').textContent = 'Pengajuan retur telah diterima. Tim akan menghubungi Anda untuk langkah selanjutnya.';
+      showModal();
+    }
+  });
   // If returning from payment simulator, show confirmation modal
   const params = new URLSearchParams(window.location.search);
   const paidOrderId = params.get('paid_order');
@@ -404,7 +585,12 @@ function init() {
     const o = all.find(x => x.order_id === paidOrderId);
     if (o) {
       document.getElementById('modal-title').textContent = 'Pembayaran Sukses';
-      document.getElementById('modal-body').textContent = `Pembayaran untuk order ${paidOrderId} telah diterima. Terima kasih.`;
+      let body = `Pembayaran untuk order ${paidOrderId} telah diterima. Terima kasih.`;
+      if (o.reward && o.reward > 0) {
+        body += ` Anda mendapat koin reward sebesar ${formatCurrency(o.reward)}.`;
+      }
+      document.getElementById('modal-body').textContent = body;
+      updateCoinDisplay();
       showModal();
     }
     // remove query param to avoid repeat
@@ -412,6 +598,51 @@ function init() {
       const url = new URL(window.location.href);
       url.searchParams.delete('paid_order');
       window.history.replaceState({}, document.title, url.toString());
+    }
+  }
+  // handle open param (cart or checkout)
+  const openParam = params.get('open');
+  if (openParam === 'cart') {
+    showCart();
+  }
+  if (openParam === 'checkout') {
+    showCart();
+    setTimeout(() => checkoutModal.classList.add('open'), 250);
+    if (window.history && window.history.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('open');
+      window.history.replaceState({}, document.title, url.toString());
+    }
+    // auto submit checkout if requested
+    const autoPay = params.get('auto_pay');
+    if (autoPay === '1') {
+      // fill demo customer and payment method then submit
+      setTimeout(() => {
+        try {
+          document.getElementById('cust-name').value = 'Pembeli Demo';
+          document.getElementById('cust-phone').value = '08123456789';
+          document.getElementById('cust-address').value = 'Jl. Demo No.1';
+          document.getElementById('cust-city').value = 'Jakarta';
+          document.getElementById('cust-postal').value = '10110';
+          const pm = document.getElementById('payment-method');
+          if (pm) pm.value = 'dana';
+          // ensure voucher/coins cleared
+          const useCoins = document.getElementById('use-coins'); if (useCoins) useCoins.value = 0;
+          const vs = document.getElementById('voucher-store'); if (vs) vs.value = '';
+          const vp = document.getElementById('voucher-platform'); if (vp) vp.value = '';
+          const vsh = document.getElementById('voucher-shipping'); if (vsh) vsh.value = '';
+          // submit form
+          checkoutForm.requestSubmit ? checkoutForm.requestSubmit() : checkoutForm.submit();
+        } catch (err) {
+          console.error('Auto-pay failed', err);
+        }
+        // remove auto_pay param
+        if (window.history && window.history.replaceState) {
+          const u = new URL(window.location.href);
+          u.searchParams.delete('auto_pay');
+          window.history.replaceState({}, document.title, u.toString());
+        }
+      }, 800);
     }
   }
   // checkout modal handlers
@@ -428,6 +659,11 @@ function init() {
     };
     const payment_method = form.get('payment_method');
     const attachmentFile = attachmentEl.files && attachmentEl.files[0];
+    // vouchers and coins
+    const storeVoucher = form.get('voucher_store') || '';
+    const platformVoucher = form.get('voucher_platform') || '';
+    const shippingVoucher = form.get('voucher_shipping') || '';
+    const useCoins = Math.max(0, parseInt(form.get('use_coins') || 0, 10));
 
     const orderId = 'ORD-' + Date.now();
     const items = Object.values(cart).map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity }));
@@ -441,6 +677,8 @@ function init() {
       payment_status: 'PENDING',
       attachment: null,
       status: 'UNPAID',
+      applied_vouchers: { store: storeVoucher, platform: platformVoucher, shipping: shippingVoucher },
+      coins_used: 0,
       created_at: new Date().toISOString()
     };
 
@@ -458,8 +696,21 @@ function init() {
       order.payment_status = 'AWAITING_PAYMENT';
       order.status = 'AWAITING_PAYMENT';
     }
+    // calculate discounts and final total
+    const calc = calculateFinalTotal(order, useCoins, storeVoucher, platformVoucher, shippingVoucher);
+    order.discounts = calc.discounts;
+    order.coins_used = calc.coinsUsed;
+    order.final_total = calc.finalTotal;
     orders.unshift(order);
     localStorage.setItem('njiOrders', JSON.stringify(orders));
+
+    // if coins used, deduct from balance
+    if (calc.coinsUsed > 0) {
+      const current = JSON.parse(localStorage.getItem('njiCoins') || '0');
+      localStorage.setItem('njiCoins', JSON.stringify(Math.max(0, current - calc.coinsUsed)));
+    }
+
+    updateCoinDisplay();
 
     // Redirect to local Payment Simulator for non-COD methods
     if (payment_method !== 'cod') {
@@ -492,6 +743,29 @@ function init() {
       showModal();
     });
   });
+
+  // check-in button logic
+  const checkinBtn = document.getElementById('checkin-btn');
+  if (checkinBtn) {
+    checkinBtn.addEventListener('click', () => {
+      const last = localStorage.getItem('njiLastCheckin');
+      const today = new Date().toISOString().slice(0,10);
+      if (last === today) {
+        document.getElementById('modal-title').textContent = 'Check-in';
+        document.getElementById('modal-body').textContent = 'Anda sudah check-in hari ini.';
+        showModal();
+        return;
+      }
+      const award = 5000; // Rp
+      const cur = JSON.parse(localStorage.getItem('njiCoins') || '0');
+      localStorage.setItem('njiCoins', JSON.stringify(cur + award));
+      localStorage.setItem('njiLastCheckin', today);
+      updateCoinDisplay();
+      document.getElementById('modal-title').textContent = 'Check-in Berhasil';
+      document.getElementById('modal-body').textContent = `Anda mendapat ${formatCurrency(award)} koin sebagai reward check-in hari ini.`;
+      showModal();
+    });
+  }
 }
 
 init();
