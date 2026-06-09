@@ -16,6 +16,7 @@ Website toko baju demo dengan desain modern dan keranjang belanja.
 - Keranjang belanja dengan jumlah item dan total harga.
 - Persistensi keranjang di `localStorage` sehingga data tetap tersimpan.
 - Checkout sederhana dengan konfirmasi modal.
+- Panel informasi baru di bagian bawah dengan tautan ke halaman `info.html`.
 
 ## File penting
 - `index.html` — halaman web utama.
