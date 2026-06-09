@@ -382,6 +382,33 @@ input {
   color: var(--muted);
 }
 
+.partner-logos {
+  margin: 0 2rem 1.5rem;
+  padding: 1.8rem 2rem;
+  border-radius: 28px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+}
+
+.partner-logos h3 {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+}
+
+.logo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  align-items: center;
+}
+
+.logo-grid img {
+  width: 100%;
+  max-height: 48px;
+  object-fit: contain;
+  filter: saturate(0.9);
+}
+
 .footer-links {
   display: flex;
   gap: 1rem;
