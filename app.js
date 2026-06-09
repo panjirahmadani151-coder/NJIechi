@@ -310,6 +310,24 @@ function init() {
   modal.addEventListener('click', event => {
     if (event.target === modal) hideModal();
   });
+  // If returning from payment simulator, show confirmation modal
+  const params = new URLSearchParams(window.location.search);
+  const paidOrderId = params.get('paid_order');
+  if (paidOrderId) {
+    const all = JSON.parse(localStorage.getItem('njiOrders') || '[]');
+    const o = all.find(x => x.order_id === paidOrderId);
+    if (o) {
+      document.getElementById('modal-title').textContent = 'Pembayaran Sukses';
+      document.getElementById('modal-body').textContent = `Pembayaran untuk order ${paidOrderId} telah diterima. Terima kasih.`;
+      showModal();
+    }
+    // remove query param to avoid repeat
+    if (window.history && window.history.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('paid_order');
+      window.history.replaceState({}, document.title, url.toString());
+    }
+  }
   // checkout modal handlers
   checkoutCancel.addEventListener('click', () => checkoutModal.classList.remove('open'));
   checkoutForm.addEventListener('submit', async (e) => {
@@ -349,9 +367,27 @@ function init() {
     }
 
     const orders = JSON.parse(localStorage.getItem('njiOrders') || '[]');
+    // mark awaiting for non-cod payments
+    if (payment_method !== 'cod') {
+      order.payment_status = 'AWAITING_PAYMENT';
+      order.status = 'AWAITING_PAYMENT';
+    }
     orders.unshift(order);
     localStorage.setItem('njiOrders', JSON.stringify(orders));
 
+    // Redirect to local Payment Simulator for non-COD methods
+    if (payment_method !== 'cod') {
+      // clear cart (we move to payment flow)
+      Object.keys(cart).forEach(id => delete cart[id]);
+      saveCart();
+      renderCart();
+      checkoutModal.classList.remove('open');
+      // navigate to payment simulator with order id and method
+      window.location.href = `payment.html?order_id=${encodeURIComponent(order.order_id)}&method=${encodeURIComponent(payment_method)}`;
+      return;
+    }
+
+    // COD: keep existing simulation locally
     processPayment(order).then((res) => {
       const all = JSON.parse(localStorage.getItem('njiOrders') || '[]');
       const idx = all.findIndex(o => o.order_id === order.order_id);

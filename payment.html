@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Payment Simulator - NusantaraMall</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body { display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg); }
+      .pay-box{background:#fff;padding:2rem;border-radius:12px;box-shadow:0 6px 30px rgba(11,32,73,0.08);max-width:420px;width:100%}
+      .muted{color:var(--muted)}
+      .mb{margin-bottom:1rem}
+    </style>
+  </head>
+  <body>
+    <div class="pay-box">
+      <h2 id="pay-title">Payment Simulator</h2>
+      <p class="muted mb" id="pay-desc">Memuat detail pesanan...</p>
+      <div id="order-info" class="mb"></div>
+      <div style="display:flex;gap:.6rem">
+        <button id="pay-now" class="btn btn-primary">Bayar Sekarang</button>
+        <button id="cancel" class="btn btn-secondary">Batal</button>
+      </div>
+    </div>
+    <script src="payment.js"></script>
+  </body>
+</html>
