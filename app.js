@@ -80,6 +80,11 @@ const heroShop = document.getElementById('hero-shop');
 const footerShop = document.getElementById('footer-shop');
 const modal = document.getElementById('modal');
 const modalClose = document.getElementById('modal-close');
+const checkoutModal = document.getElementById('checkout-modal');
+const checkoutForm = document.getElementById('checkout-form');
+const checkoutCancel = document.getElementById('checkout-cancel');
+const paymentMethodEl = document.getElementById('payment-method');
+const attachmentEl = document.getElementById('attachment');
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value);
@@ -252,11 +257,35 @@ function handleCheckout() {
     alert('Keranjang masih kosong. Tambahkan produk terlebih dahulu.');
     return;
   }
+  checkoutModal.classList.add('open');
+}
 
-  showModal();
-  Object.keys(cart).forEach(id => delete cart[id]);
-  saveCart();
-  renderCart();
+// Simulate payment integration and settlement
+function processPayment(order) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      let payment_status = 'COMPLETED';
+      let order_status = 'PROCESSING';
+      let title = 'Pembayaran Berhasil';
+      let message = `Order ${order.order_id} berhasil, total ${formatCurrency(order.total)}.`;
+
+      if (order.payment_method === 'cod') {
+        payment_status = 'PENDING_COD';
+        order_status = 'AWAITING_COD_COLLECTION';
+        title = 'Pesanan Dikonfirmasi (COD)';
+        message = `Order ${order.order_id} telah dikonfirmasi. Bayar saat barang diterima (COD).`;
+      }
+
+      if (order.payment_method === 'va') {
+        payment_status = 'AWAITING_VA';
+        order_status = 'UNPAID';
+        title = 'Virtual Account Dibuat';
+        message = `Virtual Account telah dibuat. Silakan lakukan pembayaran melalui bank. Order ID: ${order.order_id}`;
+      }
+
+      resolve({ payment_status, order_status, title, message });
+    }, 900);
+  });
 }
 
 function init() {
@@ -280,6 +309,66 @@ function init() {
   modalClose.addEventListener('click', hideModal);
   modal.addEventListener('click', event => {
     if (event.target === modal) hideModal();
+  });
+  // checkout modal handlers
+  checkoutCancel.addEventListener('click', () => checkoutModal.classList.remove('open'));
+  checkoutForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(checkoutForm);
+    const customer = {
+      name: form.get('name'),
+      phone: form.get('phone'),
+      address: form.get('address'),
+      city: form.get('city'),
+      postal: form.get('postal')
+    };
+    const payment_method = form.get('payment_method');
+    const attachmentFile = attachmentEl.files && attachmentEl.files[0];
+
+    const orderId = 'ORD-' + Date.now();
+    const items = Object.values(cart).map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity }));
+    const total = Object.values(cart).reduce((s, it) => s + it.quantity * it.price, 0);
+    const order = {
+      order_id: orderId,
+      items,
+      total,
+      customer,
+      payment_method,
+      payment_status: 'PENDING',
+      attachment: null,
+      status: 'UNPAID',
+      created_at: new Date().toISOString()
+    };
+
+    if (attachmentFile) {
+      order.attachment = await new Promise((res) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.readAsDataURL(attachmentFile);
+      });
+    }
+
+    const orders = JSON.parse(localStorage.getItem('njiOrders') || '[]');
+    orders.unshift(order);
+    localStorage.setItem('njiOrders', JSON.stringify(orders));
+
+    processPayment(order).then((res) => {
+      const all = JSON.parse(localStorage.getItem('njiOrders') || '[]');
+      const idx = all.findIndex(o => o.order_id === order.order_id);
+      if (idx >= 0) {
+        all[idx].payment_status = res.payment_status;
+        all[idx].status = res.order_status;
+        localStorage.setItem('njiOrders', JSON.stringify(all));
+      }
+
+      Object.keys(cart).forEach(id => delete cart[id]);
+      saveCart();
+      renderCart();
+      checkoutModal.classList.remove('open');
+      document.getElementById('modal-title').textContent = res.title;
+      document.getElementById('modal-body').textContent = res.message;
+      showModal();
+    });
   });
 }
 

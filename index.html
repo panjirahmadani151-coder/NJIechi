@@ -102,10 +102,39 @@
     </div>
   </aside>
 
+  <!-- Checkout Modal -->
+  <div class="modal" id="checkout-modal">
+    <div class="modal-content">
+      <h3>Formulir Checkout</h3>
+      <form id="checkout-form">
+        <div style="display:grid;gap:0.6rem;">
+          <input type="text" id="cust-name" name="name" placeholder="Nama lengkap" required />
+          <input type="tel" id="cust-phone" name="phone" placeholder="No. Telepon" required />
+          <input type="text" id="cust-address" name="address" placeholder="Alamat lengkap" required />
+          <input type="text" id="cust-city" name="city" placeholder="Kota" required />
+          <input type="text" id="cust-postal" name="postal" placeholder="Kode pos" />
+          <label for="payment-method">Pilih Metode Pembayaran</label>
+          <select id="payment-method" name="payment_method">
+            <option value="dana">DANA (E-Wallet)</option>
+            <option value="ovo">OVO (E-Wallet)</option>
+            <option value="va">Virtual Account (Bank)</option>
+            <option value="cod">COD (Cash on Delivery)</option>
+          </select>
+          <label for="attachment">Lampiran (opsional): foto/ktp/notes</label>
+          <input type="file" id="attachment" name="attachment" accept="image/*" />
+        </div>
+        <div style="display:flex;gap:0.6rem;margin-top:1rem;">
+          <button type="submit" class="btn btn-primary">Bayar / Konfirmasi</button>
+          <button type="button" id="checkout-cancel" class="btn btn-secondary">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="modal" id="modal">
     <div class="modal-content">
-      <h3>Checkout Berhasil</h3>
-      <p>Pesanan Anda berhasil disiapkan. Terima kasih telah berbelanja di NusantaraMall.</p>
+      <h3 id="modal-title">Checkout Berhasil</h3>
+      <p id="modal-body">Pesanan Anda berhasil disiapkan. Terima kasih telah berbelanja di NusantaraMall.</p>
       <button id="modal-close" class="btn btn-secondary">Tutup</button>
     </div>
   </div>
