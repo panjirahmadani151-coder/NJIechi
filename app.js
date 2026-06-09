@@ -7,7 +7,12 @@ const products = [
     description: 'Kemeja batik modern dengan bahan adem dan potongan slim fit.',
     badge: 'Best Seller',
     rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1520975924654-0c2d9c91b73b?auto=format&fit=crop&w=900&q=80'
+    image: 'https://images.unsplash.com/photo-1520975924654-0c2d9c91b73b?auto=format&fit=crop&w=900&q=80',
+    variants: [
+      { id: 's-white', name: 'Putih / S', price: 189000 },
+      { id: 'm-blue', name: 'Biru / M', price: 199000 },
+      { id: 'l-black', name: 'Hitam / L', price: 199000 }
+    ]
   },
   {
     id: 'jacket-02',
@@ -17,7 +22,11 @@ const products = [
     description: 'Jaket denim unisex dengan detail bordir Jawa Timur.',
     badge: 'New',
     rating: 4.6,
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80'
+    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80',
+    variants: [
+      { id: 'm-indigo', name: 'Indigo / M', price: 249000 },
+      { id: 'l-indigo', name: 'Indigo / L', price: 259000 }
+    ]
   },
   {
     id: 'polo-03',
@@ -27,7 +36,11 @@ const products = [
     description: 'Polo shirt nyaman untuk gaya kasual dan formal ringan.',
     badge: 'Limited',
     rating: 4.5,
-    image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=900&q=80'
+    image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=900&q=80',
+    variants: [
+      { id: 'm-red', name: 'Merah / M', price: 129000 },
+      { id: 'l-red', name: 'Merah / L', price: 139000 }
+    ]
   },
   {
     id: 'dress-04',
@@ -85,6 +98,14 @@ const checkoutForm = document.getElementById('checkout-form');
 const checkoutCancel = document.getElementById('checkout-cancel');
 const paymentMethodEl = document.getElementById('payment-method');
 const attachmentEl = document.getElementById('attachment');
+const productModal = document.getElementById('product-modal');
+const detailImage = document.getElementById('detail-image');
+const detailName = document.getElementById('detail-name');
+const detailDesc = document.getElementById('detail-desc');
+const variantSelect = document.getElementById('variant-select');
+const variantQty = document.getElementById('variant-qty');
+const addVariantCart = document.getElementById('add-variant-cart');
+const productCancel = document.getElementById('product-cancel');
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value);
@@ -150,19 +171,20 @@ function renderCart() {
     updateCartSummary();
     return;
   }
-
-  Object.values(cart).forEach(item => {
+  Object.entries(cart).forEach(([key, item]) => {
     const row = document.createElement('div');
     row.className = 'cart-item';
+    const variantLabel = item.variant_name ? `<div style="font-size:0.85rem;color:var(--muted)">${item.variant_name}</div>` : '';
     row.innerHTML = `
       <img src="${item.image}" alt="${item.name}" />
       <div class="details">
         <strong>${item.name}</strong>
+        ${variantLabel}
         <small>${formatCurrency(item.price)}</small>
         <div class="quantity">
-          <button data-action="decrement" data-id="${item.id}">-</button>
+          <button data-action="decrement" data-id="${key}">-</button>
           <span>${item.quantity}</span>
-          <button data-action="increment" data-id="${item.id}">+</button>
+          <button data-action="increment" data-id="${key}">+</button>
         </div>
       </div>
     `;
@@ -175,21 +197,22 @@ function renderCart() {
 function addProductToCart(productId) {
   const product = products.find(p => p.id === productId);
   if (!product) return;
-
-  if (!cart[productId]) {
-    cart[productId] = { ...product, quantity: 0 };
+  // default add without variant uses key 'productId::default'
+  const key = `${productId}::default`;
+  if (!cart[key]) {
+    cart[key] = { id: key, product_id: productId, variant_id: null, name: product.name, variant_name: null, price: product.price, image: product.image, quantity: 0 };
   }
-  cart[productId].quantity += 1;
+  cart[key].quantity += 1;
   saveCart();
   renderCart();
 }
 
-function changeQuantity(productId, delta) {
-  if (!cart[productId]) return;
-  cart[productId].quantity += delta;
+function changeQuantity(itemKey, delta) {
+  if (!cart[itemKey]) return;
+  cart[itemKey].quantity += delta;
 
-  if (cart[productId].quantity <= 0) {
-    delete cart[productId];
+  if (cart[itemKey].quantity <= 0) {
+    delete cart[itemKey];
   }
   saveCart();
   renderCart();
@@ -218,15 +241,78 @@ function handleProductGridClick(event) {
   const action = button.dataset.action;
   const productId = button.dataset.id;
   if (action === 'add') {
-    addProductToCart(productId);
+    const product = products.find(p => p.id === productId);
+    if (product && product.variants && product.variants.length) {
+      openProductModal(productId);
+    } else {
+      addProductToCart(productId);
+    }
     return;
   }
 
   if (action === 'details') {
     const product = products.find(item => item.id === productId);
     if (!product) return;
-    alert(`${product.name}\n\n${product.description}\n\nHarga: ${formatCurrency(product.price)}`);
+    openProductModal(productId);
   }
+}
+
+function openProductModal(productId) {
+  const product = products.find(p => p.id === productId);
+  if (!product) return;
+  detailImage.src = product.image;
+  detailName.textContent = product.name;
+  detailDesc.textContent = product.description;
+  variantSelect.innerHTML = '';
+  if (product.variants && product.variants.length) {
+    product.variants.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      opt.textContent = `${v.name} — ${formatCurrency(v.price)}`;
+      opt.dataset.price = v.price;
+      variantSelect.appendChild(opt);
+    });
+  } else {
+    const opt = document.createElement('option');
+    opt.value = 'default';
+    opt.textContent = `${product.name} — ${formatCurrency(product.price)}`;
+    opt.dataset.price = product.price;
+    variantSelect.appendChild(opt);
+  }
+  variantQty.value = 1;
+  productModal.classList.add('open');
+  // attach handler
+  addVariantCart.onclick = () => {
+    const vid = variantSelect.value;
+    const qty = parseInt(variantQty.value, 10) || 1;
+    addVariantToCart(productId, vid, qty);
+    productModal.classList.remove('open');
+  };
+}
+
+productCancel && productCancel.addEventListener('click', () => productModal.classList.remove('open'));
+
+function addVariantToCart(productId, variantId, qty) {
+  const product = products.find(p => p.id === productId);
+  if (!product) return;
+  let variant = null;
+  if (product.variants && product.variants.length) variant = product.variants.find(v => v.id === variantId);
+  const key = `${productId}::${variant ? variant.id : 'default'}`;
+  if (!cart[key]) {
+    cart[key] = {
+      id: key,
+      product_id: productId,
+      variant_id: variant ? variant.id : null,
+      name: product.name,
+      variant_name: variant ? variant.name : null,
+      price: variant ? variant.price : product.price,
+      image: product.image,
+      quantity: 0
+    };
+  }
+  cart[key].quantity += qty;
+  saveCart();
+  renderCart();
 }
 
 function handleCartActions(event) {

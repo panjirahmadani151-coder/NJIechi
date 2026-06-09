@@ -56,6 +56,27 @@
 
     <section class="products" id="products"></section>
 
+    <!-- Product Detail Modal for variants -->
+    <div class="modal" id="product-modal">
+      <div class="modal-content">
+        <div id="product-detail">
+          <img id="detail-image" src="" alt="" style="width:100%;height:auto;border-radius:8px;" />
+          <h3 id="detail-name">Nama Produk</h3>
+          <p id="detail-desc"></p>
+          <div style="display:grid;gap:.5rem">
+            <label for="variant-select">Pilih Varian</label>
+            <select id="variant-select"></select>
+            <label for="variant-qty">Jumlah</label>
+            <input id="variant-qty" type="number" min="1" value="1" />
+            <div style="display:flex;gap:.6rem;">
+              <button id="add-variant-cart" class="btn btn-primary">Tambah ke Keranjang</button>
+              <button id="product-cancel" class="btn btn-secondary">Tutup</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <section class="features" id="features">
       <h2>Kenapa Belanja di NusantaraMall?</h2>
       <div class="feature-grid">
