@@ -10,6 +10,24 @@
       .pay-box{background:#fff;padding:2rem;border-radius:12px;box-shadow:0 6px 30px rgba(11,32,73,0.08);max-width:420px;width:100%}
       .muted{color:var(--muted)}
       .mb{margin-bottom:1rem}
+      .payment-field {
+        display:block;
+        margin-bottom:.9rem;
+      }
+      .payment-field label {
+        display:block;
+        margin-bottom:.35rem;
+        color:#3c4969;
+        font-size:.92rem;
+      }
+      .payment-field input,
+      .payment-field select {
+        width:100%;
+        padding:.75rem 1rem;
+        border:1px solid #d3dce6;
+        border-radius:10px;
+        font-size:1rem;
+      }
     </style>
   </head>
   <body>
@@ -17,6 +35,7 @@
       <h2 id="pay-title">Payment Simulator</h2>
       <p class="muted mb" id="pay-desc">Memuat detail pesanan...</p>
       <div id="order-info" class="mb"></div>
+      <div id="payment-fields" class="mb"></div>
       <div style="display:flex;gap:.6rem">
         <button id="pay-now" class="btn btn-primary">Bayar Sekarang</button>
         <button id="cancel" class="btn btn-secondary">Batal</button>

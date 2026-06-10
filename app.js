@@ -97,6 +97,7 @@ const checkoutModal = document.getElementById('checkout-modal');
 const checkoutForm = document.getElementById('checkout-form');
 const checkoutCancel = document.getElementById('checkout-cancel');
 const paymentMethodEl = document.getElementById('payment-method');
+const paymentDetailsContainer = document.getElementById('payment-details');
 const attachmentEl = document.getElementById('attachment');
 const productModal = document.getElementById('product-modal');
 const detailImage = document.getElementById('detail-image');
@@ -418,6 +419,51 @@ function handleCategoryClick(event) {
   renderProducts(getFilteredProducts());
 }
 
+function renderPaymentDetails(method) {
+  if (!paymentDetailsContainer) return;
+  const sections = {
+    dana: `
+      <label for="dana-phone">Nomor Telepon DANA</label>
+      <input type="tel" id="dana-phone" name="dana_phone" placeholder="08xxxxxxxxxx" required />
+      <label for="dana-pin">PIN DANA (simulasi)</label>
+      <input type="password" id="dana-pin" name="dana_pin" placeholder="****" minlength="4" maxlength="6" required />
+    `,
+    ovo: `
+      <label for="ovo-phone">Nomor Telepon OVO</label>
+      <input type="tel" id="ovo-phone" name="ovo_phone" placeholder="08xxxxxxxxxx" required />
+    `,
+    debit: `
+      <label for="card-number">Nomor Kartu Debit</label>
+      <input type="text" id="card-number" name="card_number" placeholder="1234 5678 9012 3456" inputmode="numeric" required />
+      <label for="card-holder">Nama Pemegang Kartu</label>
+      <input type="text" id="card-holder" name="card_holder" placeholder="Nama Sesuai Kartu" required />
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">
+        <div>
+          <label for="card-expiry">Masa Berlaku</label>
+          <input type="text" id="card-expiry" name="card_expiry" placeholder="MM/YY" maxlength="5" required />
+        </div>
+        <div>
+          <label for="card-cvv">CVV</label>
+          <input type="text" id="card-cvv" name="card_cvv" placeholder="123" maxlength="4" inputmode="numeric" required />
+        </div>
+      </div>
+    `,
+    va: `
+      <label for="bank-name">Bank</label>
+      <select id="bank-name" name="bank_name" required>
+        <option value="BCA">BCA</option>
+        <option value="BNI">BNI</option>
+        <option value="Mandiri">Mandiri</option>
+        <option value="BRI">BRI</option>
+      </select>
+      <label for="va-number">Nomor Virtual Account</label>
+      <input type="text" id="va-number" name="va_number" placeholder="1234567890" required />
+    `,
+    cod: ''
+  };
+  paymentDetailsContainer.innerHTML = sections[method] || '';
+}
+
 function handleCheckout() {
   if (Object.keys(cart).length === 0) {
     alert('Keranjang masih kosong. Tambahkan produk terlebih dahulu.');
@@ -521,7 +567,7 @@ function openReturnForm(orderId) {
   returnModal.classList.add('open');
 }
 
-function init() {
+async function init() {
   renderFilters();
   renderProducts(getFilteredProducts());
   renderCart();
@@ -530,6 +576,8 @@ function init() {
   if (!localStorage.getItem('njiCoins')) localStorage.setItem('njiCoins', JSON.stringify(50000));
   updateCoinDisplay();
   populateVouchers();
+  renderPaymentDetails(paymentMethodEl ? paymentMethodEl.value : 'dana');
+  paymentMethodEl && paymentMethodEl.addEventListener('change', (e) => renderPaymentDetails(e.target.value));
 
   categoryFilter.addEventListener('click', handleCategoryClick);
   productGrid.addEventListener('click', handleProductGridClick);
@@ -581,19 +629,22 @@ function init() {
   const params = new URLSearchParams(window.location.search);
   const paidOrderId = params.get('paid_order');
   if (paidOrderId) {
-    const all = JSON.parse(localStorage.getItem('njiOrders') || '[]');
-    const o = all.find(x => x.order_id === paidOrderId);
-    if (o) {
-      document.getElementById('modal-title').textContent = 'Pembayaran Sukses';
-      let body = `Pembayaran untuk order ${paidOrderId} telah diterima. Terima kasih.`;
-      if (o.reward && o.reward > 0) {
-        body += ` Anda mendapat koin reward sebesar ${formatCurrency(o.reward)}.`;
+    try {
+      const response = await fetch(`/api/orders/${encodeURIComponent(paidOrderId)}`);
+      if (response.ok) {
+        const o = await response.json();
+        document.getElementById('modal-title').textContent = 'Pembayaran Sukses';
+        let body = `Pembayaran untuk order ${paidOrderId} telah diterima. Terima kasih.`;
+        if (o.reward && o.reward > 0) {
+          body += ` Anda mendapat koin reward sebesar ${formatCurrency(o.reward)}.`;
+        }
+        document.getElementById('modal-body').textContent = body;
+        updateCoinDisplay();
+        showModal();
       }
-      document.getElementById('modal-body').textContent = body;
-      updateCoinDisplay();
-      showModal();
+    } catch (err) {
+      console.error('Fetch paid order failed', err);
     }
-    // remove query param to avoid repeat
     if (window.history && window.history.replaceState) {
       const url = new URL(window.location.href);
       url.searchParams.delete('paid_order');
@@ -659,89 +710,71 @@ function init() {
     };
     const payment_method = form.get('payment_method');
     const attachmentFile = attachmentEl.files && attachmentEl.files[0];
-    // vouchers and coins
+    const paymentDetails = {
+      dana_phone: form.get('dana_phone') || '',
+      dana_pin: form.get('dana_pin') || '',
+      ovo_phone: form.get('ovo_phone') || '',
+      bank_name: form.get('bank_name') || '',
+      va_number: form.get('va_number') || '',
+      card_number: form.get('card_number') ? form.get('card_number').replace(/\s+/g, '') : '',
+      card_holder: form.get('card_holder') || '',
+      card_expiry: form.get('card_expiry') || '',
+      card_cvv: form.get('card_cvv') || ''
+    };
     const storeVoucher = form.get('voucher_store') || '';
     const platformVoucher = form.get('voucher_platform') || '';
     const shippingVoucher = form.get('voucher_shipping') || '';
     const useCoins = Math.max(0, parseInt(form.get('use_coins') || 0, 10));
-
-    const orderId = 'ORD-' + Date.now();
     const items = Object.values(cart).map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity }));
-    const total = Object.values(cart).reduce((s, it) => s + it.quantity * it.price, 0);
-    const order = {
-      order_id: orderId,
-      items,
-      total,
+    const attachment = attachmentFile ? await new Promise((res) => {
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result);
+      reader.readAsDataURL(attachmentFile);
+    }) : null;
+
+    const payload = {
       customer,
+      items,
       payment_method,
-      payment_status: 'PENDING',
-      attachment: null,
-      status: 'UNPAID',
-      applied_vouchers: { store: storeVoucher, platform: platformVoucher, shipping: shippingVoucher },
-      coins_used: 0,
-      created_at: new Date().toISOString()
+      payment_details: paymentDetails,
+      vouchers: { store: storeVoucher, platform: platformVoucher, shipping: shippingVoucher },
+      use_coins: useCoins,
+      attachment
     };
 
-    if (attachmentFile) {
-      order.attachment = await new Promise((res) => {
-        const r = new FileReader();
-        r.onload = () => res(r.result);
-        r.readAsDataURL(attachmentFile);
+    const submitButton = checkoutForm.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
-    }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Gagal memproses checkout');
 
-    const orders = JSON.parse(localStorage.getItem('njiOrders') || '[]');
-    // mark awaiting for non-cod payments
-    if (payment_method !== 'cod') {
-      order.payment_status = 'AWAITING_PAYMENT';
-      order.status = 'AWAITING_PAYMENT';
-    }
-    // calculate discounts and final total
-    const calc = calculateFinalTotal(order, useCoins, storeVoucher, platformVoucher, shippingVoucher);
-    order.discounts = calc.discounts;
-    order.coins_used = calc.coinsUsed;
-    order.final_total = calc.finalTotal;
-    orders.unshift(order);
-    localStorage.setItem('njiOrders', JSON.stringify(orders));
-
-    // if coins used, deduct from balance
-    if (calc.coinsUsed > 0) {
-      const current = JSON.parse(localStorage.getItem('njiCoins') || '0');
-      localStorage.setItem('njiCoins', JSON.stringify(Math.max(0, current - calc.coinsUsed)));
-    }
-
-    updateCoinDisplay();
-
-    // Redirect to local Payment Simulator for non-COD methods
-    if (payment_method !== 'cod') {
-      // clear cart (we move to payment flow)
-      Object.keys(cart).forEach(id => delete cart[id]);
-      saveCart();
-      renderCart();
-      checkoutModal.classList.remove('open');
-      // navigate to payment simulator with order id and method
-      window.location.href = `payment.html?order_id=${encodeURIComponent(order.order_id)}&method=${encodeURIComponent(payment_method)}`;
-      return;
-    }
-
-    // COD: keep existing simulation locally
-    processPayment(order).then((res) => {
-      const all = JSON.parse(localStorage.getItem('njiOrders') || '[]');
-      const idx = all.findIndex(o => o.order_id === order.order_id);
-      if (idx >= 0) {
-        all[idx].payment_status = res.payment_status;
-        all[idx].status = res.order_status;
-        localStorage.setItem('njiOrders', JSON.stringify(all));
+      if (Array.isArray(items) && items.length) {
+        Object.keys(cart).forEach(id => delete cart[id]);
+        saveCart();
+        renderCart();
       }
 
-      Object.keys(cart).forEach(id => delete cart[id]);
-      saveCart();
-      renderCart();
       checkoutModal.classList.remove('open');
-      document.getElementById('modal-title').textContent = res.title;
-      document.getElementById('modal-body').textContent = res.message;
+
+      if (data.payment_url) {
+        window.location.href = data.payment_url;
+        return;
+      }
+
+      document.getElementById('modal-title').textContent = 'Pesanan COD Diterima';
+      document.getElementById('modal-body').textContent = data.order?.message || 'Pesanan COD berhasil dibuat.';
       showModal();
-    });
+    } catch (err) {
+      alert(err.message);
+      console.error(err);
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+    }
   });
 
   // check-in button logic

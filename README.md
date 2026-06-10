@@ -10,6 +10,19 @@ Website toko baju demo dengan desain modern dan keranjang belanja.
    - `npm install`
    - `npm start`
 
+### Backend API
+Untuk menjalankan backend checkout dan sandbox payment gateway lokal:
+
+- `npm run server`
+- buka `http://localhost:8000`
+
+Backend menyediakan endpoint berikut:
+
+- `POST /api/checkout` — buat order dan panggil sandbox payment gateway
+- `GET /api/orders/:orderId` — ambil data order
+- `POST /api/orders/:orderId/pay` — selesaikan pembayaran order
+- `POST /sandbox/payments` — contoh sandbox gateway internal
+
 ## Fitur yang tersedia
 - Tampilan homepage modern dengan hero section dan fitur marketplace.
 - Filter kategori produk dan pencarian cepat.
